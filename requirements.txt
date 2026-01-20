@@ -1,0 +1,13 @@
+# MimicFS - Ransomware-Defensive FUSE Filesystem
+# Python Dependencies
+
+# Core FUSE bindings (requires libfuse3-dev system package)
+pyfuse3>=3.2.0
+
+# Async runtime for pyfuse3
+trio>=0.22.0
+
+# Optional: faster entropy calculation for large buffers
+# Uncomment if needed (adds ~30MB dependency)
+# scipy>=1.10.0
+# numpy>=1.24.0
