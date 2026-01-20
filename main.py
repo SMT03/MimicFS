@@ -330,7 +330,9 @@ async def run_filesystem(fs: MimicFS, args: argparse.Namespace) -> None:
     try:
         await pyfuse3.main()
     except Exception as e:
+        import traceback
         logging.error(f"Filesystem error: {e}")
+        logging.error(f"Full traceback:\n{traceback.format_exc()}")
         raise
 
 
@@ -384,14 +386,17 @@ def main() -> int:
         logger.error(f"Failed to initialize FUSE: {e}")
         return 1
     
+    # Track if we've already closed
+    closed = False
+    
     # Setup signal handlers for clean shutdown
     def signal_handler(signum, frame):
+        nonlocal closed
+        if closed:
+            return
         logger.info(f"Received signal {signum}, shutting down...")
-        try:
-            pyfuse3.close(unmount=True)
-        except:
-            pass
-        sys.exit(0)
+        closed = True
+        pyfuse3.terminate()
     
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -423,19 +428,20 @@ Press Ctrl+C to unmount and exit.
         logger.error(f"Filesystem error: {e}")
         return 1
     finally:
-        # Cleanup
-        try:
-            fs.logger.log_system_event(
-                EventType.FILESYSTEM_UNMOUNTED,
-                f"MimicFS unmounted: {mountpoint}",
-            )
-        except:
-            pass
-        
-        try:
-            pyfuse3.close(unmount=True)
-        except:
-            pass
+        # Cleanup - only close once
+        if not closed:
+            try:
+                fs.logger.log_system_event(
+                    EventType.FILESYSTEM_UNMOUNTED,
+                    f"MimicFS unmounted: {mountpoint}",
+                )
+            except:
+                pass
+            
+            try:
+                pyfuse3.close(unmount=True)
+            except:
+                pass
         
         logger.info("Filesystem unmounted")
     
